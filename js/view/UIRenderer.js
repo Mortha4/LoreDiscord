@@ -6,6 +6,7 @@ import { gameState } from '../model/GameState.js';
 import { NPCS } from '../model/WorldData.js';
 import { QUESTS } from '../model/QuestsData.js';
 import { rect as drawRect, text as drawText, burger, calc, discord, elephant, drawPlayer } from './Sprites.js';
+import { glow } from './LightingAndVFX.js';
 /** Devuelve la misión activa o undefined al terminar la lista.
  */
 const getCurrentQuest = () => QUESTS[gameState.currentQuestIndex];
@@ -109,7 +110,20 @@ function menu() {
   drawText('KUPACRAFT', 320, 352, 14, '#fff', 'center');
   drawText('Flechas / WASD · ESPACIO · E', 320, 405, 8, '#f4e9c8', 'center');
   const over = gameState.mouse.x > 175 && gameState.mouse.x < 465 && gameState.mouse.y > 415 && gameState.mouse.y < 465;
-  panel(175, 417, 290, 42);
+  if (over) {
+    glow(320, 438, 110, '77,227,214', 0.22 + Math.sin(gameState.now / 150) * 0.04);
+  }
+  const ctx = getCanvasContext();
+  ctx.save();
+  try {
+    const hoverScale = over ? 1.025 : 1;
+    ctx.translate(320, 438);
+    ctx.scale(hoverScale, hoverScale);
+    ctx.translate(-320, -438);
+    panel(175, 417, 290, 42);
+  } finally {
+    ctx.restore();
+  }
   drawText('JUGAR', 320, 444, 9, over ? '#4de3d6' : '#ffcf33', 'center');
   if (over) {
     getCanvasContext().canvas.style.cursor = 'pointer';
@@ -139,12 +153,15 @@ export function renderUI() {
     return;
   }
   panel(6, 4, 628, 30);
+  glow(27, 18, 26, '255,190,80', 0.12);
   burger(14, 11);
   bar(34, 12, 104, gameState.displayedHealth / gameState.player.maxHealth, '#ff4d6d');
   calc(156, 9);
+  glow(162, 16, 22, '90,220,190', 0.1);
   bar(176, 12, 60, gameState.displayedExperience / 3, '#1fa59b');
   drawText('NV' + gameState.level, 244, 23, 7);
   discord(330, 10);
+  glow(338, 16, 24, '100,120,255', 0.12);
   bar(352, 12, 170, gameState.displayedMonths / 6, '#5865f2');
   drawText(gameState.month + '/6', 530, 23, 7);
   const quest = getCurrentQuest();

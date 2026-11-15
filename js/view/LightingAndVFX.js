@@ -73,7 +73,7 @@ function updateRain(deltaTime) {
     rainDrop.y += rainDrop.speed * deltaTime;
     rainDrop.x -= rainDrop.speed * 0.25 * deltaTime;
     if (rainDrop.y > rainDrop.groundY) {
-    if (rainSplashes.length < 48) {
+      if (rainSplashes.length < 48) {
         rainSplashes.push({ x: rainDrop.x, y: rainDrop.groundY, lifetime: 0.24 });
       }
       return false;

@@ -18,23 +18,21 @@ function shadow(positionX, positionY, width) {
   const ctx = getCanvasContext();
   const stormFactor = gameState.zone === 2 ? 1 : 0;
   const flashFactor = gameState.lightningFlash ?? 0;
-  const offsetX = stormFactor * 8 - flashFactor * 5;
-  const offsetY = 3 + stormFactor * 5 - flashFactor * 3;
-  const shadowOpacity = 0.24 + stormFactor * 0.19 - flashFactor * 0.14;
+  const offsetX = 5 + stormFactor * 7 - flashFactor * 5;
+  const offsetY = 2 + stormFactor * 5 - flashFactor * 3;
+  const shadowOpacity = 0.22 + stormFactor * 0.15 - flashFactor * 0.13;
+  const screenX = positionX - gameState.camera.x + offsetX;
+  const screenY = positionY - gameState.camera.y + offsetY;
   ctx.save();
   try {
-    ctx.fillStyle = `rgba(4,7,18,${shadowOpacity})`;
-    ctx.beginPath();
-    ctx.ellipse(
-      positionX - gameState.camera.x + offsetX,
-      positionY - gameState.camera.y + offsetY,
-      width * (1 + stormFactor * 0.28),
-      width * (0.27 + stormFactor * 0.08),
-      0,
-      0,
-      Math.PI * 2
-    );
-    ctx.fill();
+    ctx.translate(screenX, screenY);
+    ctx.scale(1, 0.38 + stormFactor * 0.08);
+    const shadowGradient = ctx.createRadialGradient(0, 0, width * 0.12, 0, 0, width * (1.2 + stormFactor * 0.3));
+    shadowGradient.addColorStop(0, `rgba(4,7,18,${shadowOpacity})`);
+    shadowGradient.addColorStop(0.65, `rgba(4,7,18,${shadowOpacity * 0.48})`);
+    shadowGradient.addColorStop(1, 'rgba(4,7,18,0)');
+    ctx.fillStyle = shadowGradient;
+    ctx.fillRect(-width * 1.6, -width * 1.6, width * 3.2, width * 3.2);
   } finally {
     ctx.restore();
   }
@@ -77,6 +75,16 @@ function ground() {
     drawWorldRect('#ddd', positionX, 597, 40, 4);
   }
   drawWorldRect('#6b6a78', 700, 500, 200, 200);
+  drawWorldRect('#8d8b9a', 1160, 780, 300, 110);
+  for (let tileX = 1160; tileX < 1460; tileX += 24) {
+    drawWorldRect('rgba(37,43,58,.16)', tileX, 780, 1, 110);
+    for (let tileY = 780; tileY < 890; tileY += 22) {
+      if ((tileX + tileY) % 3 === 0) {
+        drawWorldRect('rgba(255,255,255,.08)', tileX + 4, tileY + 5, 7, 3);
+      }
+    }
+  }
+  drawWorldRect('#777584', 1160, 778, 300, 4);
   drawWorldRect('rgba(20,18,29,.28)', 0, 636, WW, 5);
   const visibleLeft = Math.max(0, Math.floor(gameState.camera.x / 40) * 40);
   const visibleRight = Math.min(WW, gameState.camera.x + 680);
@@ -120,8 +128,8 @@ function ground() {
 /** Dibuja un árbol y su sombra en coordenadas de pantalla.
  */
 function tree(treeData) {
-  let positionX = treeData.x - gameState.camera.x,
-    positionY = treeData.y - gameState.camera.y;
+  const positionX = treeData.x - gameState.camera.x;
+  const positionY = treeData.y - gameState.camera.y;
   if (positionX < -40 || positionX > 680 || positionY < -50 || positionY > 520) {
     return;
   }
@@ -143,8 +151,9 @@ function tree(treeData) {
 /** Dibuja un objeto recolectable con sombra y resplandor.
  */
 function item(object) {
-  let positionX = object.x - gameState.camera.x + 7,
-    positionY = object.y - gameState.camera.y + 7 - Math.abs(Math.sin(gameState.now / 300 + object.x)) * 5;
+  const bob = Math.sin(gameState.now / 320 + object.x) * 2.5;
+  const positionX = object.x - gameState.camera.x + 7;
+  const positionY = object.y - gameState.camera.y + 7 - Math.abs(bob) * 2;
   shadow(object.x + 7, object.y + 14, 7);
   glow(positionX, positionY, 26, object.kind === 'libro' ? '90,150,255' : '255,205,70', .4);
   if (object.kind === 'calc') {
@@ -165,8 +174,8 @@ function item(object) {
 /** Dibuja una caja de comida con humedad y cobertura visibles.
  */
 function box(worldObject) {
-  const positionX = worldObject.x - gameState.camera.x + Math.sin(gameState.now / 25) * worldObject.shake * 3,
-    positionY = worldObject.y - gameState.camera.y;
+  const positionX = worldObject.x - gameState.camera.x + Math.sin(gameState.now / 25) * worldObject.shake * 3;
+  const positionY = worldObject.y - gameState.camera.y;
   shadow(worldObject.x + 20, worldObject.y + 24, 22);
   if (gameState.zone === 2) {
     glow(positionX + 20, positionY + 2, 32, '80,175,255', 0.12 + (worldObject.wetness ?? 0) / 100 * 0.2);
@@ -174,12 +183,58 @@ function box(worldObject) {
   drawRect('#e0a53a', positionX, positionY, 40, 24);
   drawRect('#b9792a', positionX, positionY + 8, 40, 4);
   drawRect('#c98f2e', positionX, positionY + 16, 40, 8);
+  drawRect('rgba(255,232,175,.45)', positionX + 3, positionY + 3, 10, 2);
+  drawRect('rgba(91,51,20,.35)', positionX + 18, positionY + 2, 2, 20);
   drawText(worldObject.label, positionX + 20, positionY + 19, 5, '#222', 'center');
   getCanvasContext().fillStyle = `rgba(20,50,110,${worldObject.wetness / 100 * .6})`;
   getCanvasContext().fillRect(positionX, positionY, 40, 24);
   if (worldObject.covered) {
     getCanvasContext().strokeStyle = '#4de3d6';
     getCanvasContext().strokeRect(positionX - 2, positionY - 2, 44, 28);
+  }
+}
+
+/** Dibuja las partículas que producen combate, pasos y recompensas. */
+function drawParticle(particle, ctx) {
+  const alpha = Math.max(0, Math.min(1, particle.lifetime / 0.7));
+  const screenX = particle.x - gameState.camera.x;
+  const screenY = particle.y - gameState.camera.y;
+  const size = 1.5 + alpha * 2.5;
+  ctx.save();
+  try {
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = particle.color;
+    ctx.fillRect(screenX - size / 2, screenY - size / 2, size, size);
+    if (particle.color === '#ffd84a' || particle.color === '#fff') {
+      glow(screenX, screenY, 13 + alpha * 9, particle.color === '#fff' ? '230,245,255' : '255,210,70', alpha * 0.3);
+    }
+  } finally {
+    ctx.restore();
+  }
+}
+
+/** Agrega una línea de árboles y edificios lejanos con desplazamiento parallax. */
+function drawParallaxSkyline(ctx) {
+  const parallaxOffset = (gameState.camera.x * 0.16) % 720;
+  const skylineY = 48 - gameState.camera.y * 0.12;
+  ctx.save();
+  try {
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = '#26384b';
+    for (let index = -1; index < 3; index += 1) {
+      const baseX = index * 720 - parallaxOffset;
+      ctx.fillRect(baseX + 35, skylineY + 9, 45, 31);
+      ctx.fillRect(baseX + 82, skylineY, 34, 40);
+      ctx.fillRect(baseX + 120, skylineY + 15, 58, 25);
+      ctx.fillRect(baseX + 202, skylineY + 8, 20, 32);
+      ctx.beginPath();
+      ctx.arc(baseX + 250, skylineY + 25, 23, 0, Math.PI * 2);
+      ctx.arc(baseX + 278, skylineY + 18, 27, 0, Math.PI * 2);
+      ctx.arc(baseX + 307, skylineY + 27, 21, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } finally {
+    ctx.restore();
   }
 }
 
@@ -196,12 +251,13 @@ export function renderWorld() {
   ctx.fillStyle = '#25803b';
   ctx.fillRect(0, 0, 640, 480);
   ground();
+  drawParallaxSkyline(ctx);
   const drawQueue = [];
   TREES.forEach(treeData => drawQueue.push([treeData.y + 12, () => tree(treeData)]));
   gameState.items.forEach(object => drawQueue.push([object.y + 14, () => item(object)]));
   NPCS.forEach((npc, index) => drawQueue.push([npc.y + 22, () => {
     const positionX = npc.x - gameState.camera.x,
-      positionY = npc.y - gameState.camera.y;
+      positionY = npc.y - gameState.camera.y + Math.sin(gameState.now / 520 + index) * 0.6;
     shadow(npc.x + 9, npc.y + 22, 11);
     drawRect(npc.color, positionX, positionY, 18, 22);
     drawRect('#222', positionX + 4, positionY + 6, 3, 3);
@@ -222,7 +278,7 @@ export function renderWorld() {
   }]));
   gameState.enemies.forEach(entity => drawQueue.push([entity.y + entity.h, () => {
     const positionX = entity.x - gameState.camera.x,
-      positionY = entity.y - gameState.camera.y;
+      positionY = entity.y - gameState.camera.y + Math.sin(gameState.now / 230 + entity.x) * 0.7;
     shadow(entity.x + entity.w / 2, entity.y + entity.h, entity.w * .6);
     if (entity.kind === 'guard') {
       drawGuardVisionCone(entity, positionX, positionY);
@@ -264,10 +320,8 @@ export function renderWorld() {
     }
   }
   for (const object of gameState.particles) {
-    ctx.globalAlpha = Math.max(0, Math.min(1, object.lifetime));
-    drawWorldRect(object.color, object.x, object.y, 3, 3);
+    drawParticle(object, ctx);
   }
-  ctx.globalAlpha = 1;
   for (const object of gameState.floatingMessages) {
     drawText(object.text, object.x - gameState.camera.x, object.y - gameState.camera.y, 8, '#ffe27a', 'center');
   }
