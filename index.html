@@ -291,6 +291,7 @@
 
     function prog() {
       const a = q();
+      if (!a) return '';
       return a.k === 'c' ? got + '/' + a.n :
              a.k === 'k' ? kills + '/' + a.n :
              a.k === 'r' ? Math.max(0, Math.ceil(tm)) + 's' : 'jefe';
@@ -352,17 +353,21 @@
     }
 
     function rainStage(dt) {
-      tm -= dt;
-      const rate = 4.5 + (1 - Math.max(0, tm) / 20) * 2.5;
+      // Solo corre mientras la misión está activa (ph === 1)
+      if (ph !== 1 || !Array.isArray(bx)) { p.cv = 0; return; }
+      if (tm > 0) tm = Math.max(0, tm - dt);
+      const rate = 4.5 + (1 - Math.min(1, Math.max(0, tm) / 20)) * 2.5;
       p.cv = 0;
 
       for (const b of bx) {
+        if (!b) continue;
         const cov = Math.hypot(p.x + 7 - b.x - 20, p.y + 9 - b.y - 12) < 40;
         b.cov = cov;
         if (cov) {
           p.cv = 1;
           if (Math.random() < dt * 10) emit(p.x + 7 + (Math.random() - 0.5) * 30, p.y - 8, '#bfe3ff', 1);
-        } else {
+        } else if (tm > 0) {
+          // con tm === 0 la humedad deja de subir: la misión ya está superada
           b.wet = Math.min(100, b.wet + rate * dt);
           if (Math.random() < dt * 12) b.sk = 0.35;
           if (Math.random() < dt * 14) emit(b.x + Math.random() * 40, b.y + 2, '#bfe3ff', 2);
@@ -370,14 +375,16 @@
         b.sk *= 0.9;
       }
 
-      if (bx.some(b => b.wet >= 100)) {
+      if (tm > 0 && bx.some(b => b && b.wet >= 100)) {
         st = 'over';
         ph = 0;
+        p.cv = 0;
         beep(120, 0.6, 'sawtooth', 0.08, -80);
       }
     }
 
     function dB(b) {
+      if (!b) return;
       const x = b.x - cam.x + Math.sin(now / 25) * b.sk * 3;
       const y = b.y - cam.y;
       const w = b.wet / 100;
@@ -385,7 +392,7 @@
       U('#e0a53a', x, y, 40, 24);
       U('#b9792a', x, y + 8, 40, 4);
       U('#c98f2e', x, y + 16, 40, 8);
-      T(b.lb, x + 20, y + 19, 5, '#222', 'center');
+      T(b.lb || '', x + 20, y + 19, 5, '#222', 'center');
       g.fillStyle = 'rgba(20,50,110,' + (w * 0.6) + ')';
       g.fillRect(x, y, 40, 24);
       if (b.cov) {
@@ -396,8 +403,9 @@
     }
 
     function fin() {
+      if (!q()) { ph = 0; return; }
       if (s === 1) vanish();
-      if (s === 2) bx = [];
+      if (s === 2) { bx = []; tm = 0; p.cv = 0; rain = []; }
       month++;
       ph = 0;
       s++;
@@ -407,7 +415,7 @@
 
     function interact() {
       const n = NP.find(m => Math.hypot(m.x - p.x, m.y - p.y) < 52);
-      if (!n) return;
+      if (!n || !q()) return;
       const i = NP.indexOf(n);
       if (i !== s) {
         return say([n.n + ': ' + (i < s ? '¡Gracias por todo, Kupa!' : 'Todavía no es mi turno. Seguí la flecha amarilla.')]);
@@ -465,6 +473,9 @@
       pr = [];
       items = [];
       bx = [];
+      tm = 0;
+      p.cv = 0;
+      rain = [];
       if (ph === 1) ph = 0;
       st = 'play';
       dlg = null;
@@ -588,10 +599,13 @@
         return false;
       });
 
-      if (ph === 1 && q().k === 'r') rainStage(dt);
-      if (ph === 1 && ((q().k === 'c' && got >= q().n) || (q().k === 'k' && kills >= q().n) || (q().k === 'r' && tm <= 0))) {
+      if (ph === 1 && q()?.k === 'r') rainStage(dt);
+      else p.cv = 0;
+      const qq = q();
+      if (qq && ph === 1 && ((qq.k === 'c' && got >= qq.n) || (qq.k === 'k' && kills >= qq.n) || (qq.k === 'r' && tm <= 0))) {
         ph = 2;
-        msg = s === 1 ? '¡Hablá con MARXEL!' : '¡Volvé con ' + NP[s].n + '!';
+        p.cv = 0;
+        msg = s === 1 ? '¡Hablá con MARXEL!' : '¡Volvé con ' + (NP[s]?.n ?? '') + '!';
         mt = 3;
         jingle([523, 784]);
       }
@@ -767,10 +781,11 @@
     }
 
     function arrow() {
+      const cq = q();
       let t = NP[s];
-      if (!t) return;
+      if (!t || !cq) return;
       if (ph === 1) {
-        const l = q().k === 'r' ? bx.filter(b => !b.cov) : items.filter(o => o.k === q().i).concat(en);
+        const l = cq.k === 'r' ? bx.filter(b => b && !b.cov) : items.filter(o => o.k === cq.i).concat(en);
         if (l.length) {
           t = l.reduce((a, b) => Math.hypot(a.x - p.x, a.y - p.y) < Math.hypot(b.x - p.x, b.y - p.y) ? a : b);
         }
@@ -793,15 +808,15 @@
         g.lineWidth = 2;
         rr(8, 408, 624, 68, 10);
         g.font = '9px "Press Start 2P",monospace';
-        wrap(dlg.l[dlg.i], 596).slice(0, 3).forEach((l, i) => T(l, 20, 432 + i * 18, 9, '#fff'));
+        wrap(String(dlg.l[dlg.i] ?? ''), 596).slice(0, 3).forEach((l, i) => T(l, 20, 432 + i * 18, 9, '#fff'));
         if (Math.floor(now / 400) % 2) T('▼', 612, 468, 9, '#ffcf33');
       } else if (q()) {
         U('#10102a', 0, 452, 640, 28);
         const a = q();
         const txt = s === 2 && ph === 0 ? 'Camino despejado: Acércate a KUPITINCHI (E)' :
-                    ph === 0 ? 'Hablá con ' + NP[s].n + ' (E)' :
-                    ph === 1 ? a.h + ' (' + prog() + ')' :
-                    s === 1 ? '¡Hablá con MARXEL! (E)' : 'Volvé con ' + NP[s].n + ' (E)';
+                    ph === 0 ? 'Hablá con ' + (NP[s]?.n ?? '') + ' (E)' :
+                    ph === 1 ? (a.h ?? '') + ' (' + prog() + ')' :
+                    s === 1 ? '¡Hablá con MARXEL! (E)' : 'Volvé con ' + (NP[s]?.n ?? '') + ' (E)';
         T(txt, 12, 471, 8, '#ffcf33');
       }
     }
@@ -895,6 +910,18 @@
       const x = p.x + 7, y = p.y;
       return x > 1100 && y < 430 ? 1 : x > 1100 && y > 700 ? 2 : 0;
     };
+
+    if (!CanvasRenderingContext2D.prototype.roundRect) {
+      CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+        r = Math.max(0, Math.min(r || 0, w / 2, h / 2));
+        this.moveTo(x + r, y);
+        this.arcTo(x + w, y, x + w, y + h, r);
+        this.arcTo(x + w, y + h, x, y + h, r);
+        this.arcTo(x, y + h, x, y, r);
+        this.arcTo(x, y, x + w, y, r);
+        this.closePath();
+      };
+    }
 
     function rr(x, y, w, h, r) {
       g.beginPath();
@@ -1161,7 +1188,7 @@
       dP(x, y, p.fx, p.fy, p.at);
       g.restore();
 
-      if (p.cv && ph === 1 && q() && q().k === 'r') {
+      if (p.cv && ph === 1 && q()?.k === 'r') {
         g.fillStyle = '#e04040';
         g.beginPath();
         g.arc(x + 7, y - 10, 24, Math.PI, 0);
@@ -1254,7 +1281,7 @@
       bar(352, 170, lm / 6, '#5865f2', '#4de3d6');
       T(month + '/6', 530, 23, 7);
 
-      if (ph === 1 && bx.length) {
+      if (ph === 1 && q()?.k === 'r' && bx.length) {
         g.fillStyle = 'rgba(15,20,30,.8)';
         rr(120, 40, 400, 26, 8);
         T('CAJAS', 126, 57, 6);
@@ -1312,8 +1339,8 @@
       NP.forEach((n, i) => Q.push([n.y + 22, () => dN(n, i)]));
       en.forEach(e => Q.push([e.y + e.h, () => dE(e)]));
       Q.push([p.y + p.h, dPl]);
-      bx.forEach(b => Q.push([b.y + b.h, () => dB(b)]));
-      Q.sort((a, b) => a[0] - b[0]).forEach(o => o[1]());
+      bx.forEach(b => b && Q.push([b.y + b.h, () => dB(b)]));
+      Q.sort((a, b) => a[0] - b[0]).forEach(o => { try { o[1](); } catch (e) { onError(e, 'draw-entidad'); } });
 
       // Proyectiles, partículas y textos flotantes
       pr.forEach(o => {
@@ -1368,14 +1395,35 @@
     // ==========================================
     // 7. BUCLE PRINCIPAL (GAME LOOP)
     // ==========================================
+    let errSeguidos = 0, errFrame = false;
+
+    function onError(e, donde) {
+      errFrame = true;
+      console.error('[FIUBA LORE] Error en ' + donde + ':', e);
+      aE = aS = 0;                                   // evita repetir la misma acción en cada frame
+      cv.width = cv.width;                           // reinicia el estado del canvas (save/clip/transform colgados)
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = 'source-over';
+      if (!q()) { s = Math.min(Math.max(s, 0), S.length - 1); ph = 0; }
+      if (dlg && (!Array.isArray(dlg.l) || dlg.l[dlg.i] === undefined)) dlg = null;
+      bx = bx.filter(b => b && isFinite(b.x) && isFinite(b.y));
+    }
+
     function frame(ts) {
-      const dt = Math.min((ts - last) / 1000, 0.05);
+      requestAnimationFrame(frame);                  // se reprograma primero: ningún error puede frenar el bucle
+      let dt = (ts - last) / 1000;
+      if (!isFinite(dt) || dt < 0) dt = 0.016;
+      dt = Math.min(dt, 0.05);
       last = ts;
       now = ts;
-      update(dt);
-      vfx(dt);
-      draw();
-      requestAnimationFrame(frame);
+      errFrame = false;
+      try { update(dt); } catch (e) { onError(e, 'update'); } finally { aE = aS = 0; }
+      try { vfx(dt); } catch (e) { onError(e, 'vfx'); }
+      try { draw(); } catch (e) { onError(e, 'draw'); }
+      errSeguidos = errFrame ? errSeguidos + 1 : 0;
+      if (errSeguidos > 120) {                       // último recurso: volver al menú en vez de congelarse
+        errSeguidos = 0; st = 'menu'; dlg = null; en = []; pr = []; items = []; bx = []; tm = 0; p.cv = 0; ph = 0; s = 0;
+      }
     }
 
     requestAnimationFrame(ts => {
