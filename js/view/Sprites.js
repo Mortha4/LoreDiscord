@@ -31,7 +31,9 @@ export function text(message, positionX, positionY, size = 8, color = '#f4e9c8',
 /** Dibuja el sprite pixel art de un paty.
  */
 export function burger(positionX, positionY, scale = 1) {
+  rect('#704329', positionX, positionY + 1 * scale, 14 * scale, 12 * scale);
   rect('#e8b04a', positionX, positionY, 14 * scale, 4 * scale);
+  rect('#ffe29a', positionX + 2 * scale, positionY + 1 * scale, 8 * scale, 1 * scale);
   rect('#4cd964', positionX, positionY + 4 * scale, 14 * scale, 2 * scale);
   rect('#5b3a1e', positionX, positionY + 6 * scale, 14 * scale, 3 * scale);
   rect('#e8b04a', positionX, positionY + 9 * scale, 14 * scale, 4 * scale);
@@ -77,6 +79,8 @@ export function drawPlayer(positionX, positionY, player, now, moving, wk) {
   rect('#2a2d30', positionX + 2 + walkSway * .5, positionY + 14, 4, 5);
   rect('#2a2d30', positionX + 8 - walkSway * .5, positionY + 14, 4, 5);
   rect('#555a60', positionX, positionY + 7, 14, 8);
+  rect('#858b91', positionX + 2, positionY + 7, 3, 2);
+  rect('#858b91', positionX + 9, positionY + 7, 3, 2);
   rect('#3f444b', positionX + 1, positionY + 8, 12, 2);
   rect('#777d84', positionX + 1, positionY + 11, 12, 2);
   rect('#3f444b', positionX + 1, positionY + 14, 12, 1);
@@ -87,6 +91,7 @@ export function drawPlayer(positionX, positionY, player, now, moving, wk) {
   rect('#1fa59b', positionX - 2, positionY - 9, 18, 10);
   rect('#4de3d6', positionX - 1, positionY - 8, 16, 8);
   rect('#b9fff8', positionX + 1, positionY - 7, 7, 2);
+  rect('#ffffff', positionX + 9, positionY - 6, 3, 1);
   const attackAngle = Math.atan2(player.facingY, player.facingX) + (
     player.attackCooldown > 0
       ? -1.2 + 2.4 * (1 - player.attackCooldown / .25)
@@ -106,20 +111,24 @@ export function drawPlayer(positionX, positionY, player, now, moving, wk) {
 /** Dibuja el sprite que corresponde al tipo de enemigo.
  */
 export function drawEnemy(entity, positionX, positionY) {
-  if (entity.kindind === 'cloud') {
+  if (entity.kind === 'cloud') {
+    rect('#14121d', positionX - 1, positionY - 1, 32, 26);
     rect('#6bd36b', positionX, positionY, 30, 24);
     rect('#3c8c3c', positionX + 6, positionY + 6, 22, 16);
   } else {
-    if (entity.kindind === 'guard') {
+    if (entity.kind === 'guard') {
+      rect('#14121d', positionX - 1, positionY - 1, 18, 20);
       rect('#c0392b', positionX, positionY, 16, 18);
       rect('#fff', positionX + 4, positionY + 6, 8, 3);
       text('SHH', positionX + 8, positionY - 3, 6, '#fff', 'center');
     } else {
-      if (entity.kindind === 'creepy') {
+      if (entity.kind === 'creepy') {
+        rect('#14121d', positionX - 1, positionY - 1, 18, 18);
         rect('#8e44ad', positionX, positionY, 16, 16);
         rect('#fff', positionX + 3, positionY + 4, 4, 4);
         rect('#fff', positionX + 9, positionY + 4, 4, 4);
       } else {
+        rect('#14121d', positionX - 1, positionY - 1, 46, 46);
         rect('#d86aa0', positionX, positionY, 44, 44);
         rect('#3a1a2a', positionX, positionY, 44, 14);
         rect('#fff', positionX + 10, positionY + 22, 8, 8);

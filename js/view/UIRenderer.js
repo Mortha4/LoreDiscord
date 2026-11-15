@@ -31,29 +31,51 @@ const getQuestProgress = () => {
  */
 function panel(positionX, positionY, width, height) {
   const ctx = getCanvasContext();
-  ctx.fillStyle = 'rgba(15,20,30,.88)';
-  ctx.strokeStyle = 'rgba(77,227,214,.7)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(positionX + 8, positionY);
-  ctx.arcTo(positionX + width, positionY, positionX + width, positionY + height, 8);
-  ctx.arcTo(positionX + width, positionY + height, positionX, positionY + height, 8);
-  ctx.arcTo(positionX, positionY + height, positionX, positionY, 8);
-  ctx.arcTo(positionX, positionY, positionX + width, positionY, 8);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
+  ctx.save();
+  try {
+    ctx.shadowColor = 'rgba(0,0,0,.58)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 3;
+    const gradient = ctx.createLinearGradient(positionX, positionY, positionX, positionY + height);
+    gradient.addColorStop(0, 'rgba(31,39,57,.96)');
+    gradient.addColorStop(1, 'rgba(12,16,29,.94)');
+    ctx.fillStyle = gradient;
+    ctx.strokeStyle = 'rgba(77,227,214,.82)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(positionX + 8, positionY);
+    ctx.arcTo(positionX + width, positionY, positionX + width, positionY + height, 8);
+    ctx.arcTo(positionX + width, positionY + height, positionX, positionY + height, 8);
+    ctx.arcTo(positionX, positionY + height, positionX, positionY, 8);
+    ctx.arcTo(positionX, positionY, positionX + width, positionY, 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.12)';
+    ctx.fillRect(positionX + 10, positionY + 3, Math.max(0, width - 20), 1);
+  } finally {
+    ctx.restore();
+  }
 }
 /** Dibuja una barra de progreso con relleno de color.
  */
 function bar(positionX, positionY, width, value, color) {
-  drawRect('rgba(0,0,0,.5)', positionX, positionY, width, 12);
+  const safeValue = Math.max(0, Math.min(1, value));
+  drawRect('#080b14', positionX, positionY, width, 12);
   const ctx = getCanvasContext();
-  const fillGradient = ctx.createLinearGradient(positionX, 0, positionX + width * Math.max(0, Math.min(1, value)), 0);
-  fillGradient.addColorStop(0, color);
-  fillGradient.addColorStop(1, '#b9fff8');
-  ctx.fillStyle = fillGradient;
-  ctx.fillRect(positionX, positionY, width * Math.max(0, Math.min(1, value)), 12);
+  if (safeValue > 0) {
+    const fillWidth = width * safeValue;
+    const fillGradient = ctx.createLinearGradient(positionX, 0, positionX + fillWidth, 0);
+    fillGradient.addColorStop(0, color);
+    fillGradient.addColorStop(1, '#d8fff4');
+    ctx.fillStyle = fillGradient;
+    ctx.fillRect(positionX, positionY, fillWidth, 12);
+    ctx.fillStyle = 'rgba(255,255,255,.3)';
+    ctx.fillRect(positionX, positionY, fillWidth, 2);
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,.35)';
+  ctx.strokeRect(positionX + 0.5, positionY + 0.5, width - 1, 11);
 }
 /** Dibuja el menú principal, sus personajes y el botón Jugar.
  */
@@ -64,8 +86,16 @@ function menu() {
     }
   }
   drawText('FIUBA LORE', 320, 72, 26, '#4de3d6', 'center');
+  const ctx = getCanvasContext();
+  const skyGradient = ctx.createLinearGradient(0, 120, 0, 295);
+  skyGradient.addColorStop(0, '#172547');
+  skyGradient.addColorStop(1, '#6fb3ff');
+  ctx.fillStyle = skyGradient;
+  ctx.fillRect(130, 120, 380, 155);
   panel(115, 105, 410, 260);
   drawRect('#6fb3ff', 130, 120, 380, 220);
+  ctx.fillStyle = skyGradient;
+  ctx.fillRect(130, 120, 380, 155);
   drawRect('#3f8a3f', 130, 275, 380, 65);
   drawPlayer(302, 188, {
     facingX: 1,

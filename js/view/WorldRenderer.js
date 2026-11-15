@@ -16,10 +16,28 @@ const drawWorldRect = (color, positionX, positionY, width, height) => {
  */
 function shadow(positionX, positionY, width) {
   const ctx = getCanvasContext();
-  ctx.fillStyle = 'rgba(0,0,0,.35)';
-  ctx.beginPath();
-  ctx.ellipse(positionX - gameState.camera.x, positionY - gameState.camera.y, width, width * .32, 0, 0, 7);
-  ctx.fill();
+  const stormFactor = gameState.zone === 2 ? 1 : 0;
+  const flashFactor = gameState.lightningFlash ?? 0;
+  const offsetX = stormFactor * 8 - flashFactor * 5;
+  const offsetY = 3 + stormFactor * 5 - flashFactor * 3;
+  const shadowOpacity = 0.24 + stormFactor * 0.19 - flashFactor * 0.14;
+  ctx.save();
+  try {
+    ctx.fillStyle = `rgba(4,7,18,${shadowOpacity})`;
+    ctx.beginPath();
+    ctx.ellipse(
+      positionX - gameState.camera.x + offsetX,
+      positionY - gameState.camera.y + offsetY,
+      width * (1 + stormFactor * 0.28),
+      width * (0.27 + stormFactor * 0.08),
+      0,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  } finally {
+    ctx.restore();
+  }
 }
 
 /** Dibuja el cono de visión de un guardia en dirección a su patrulla o al jugador. */
@@ -59,9 +77,28 @@ function ground() {
     drawWorldRect('#ddd', positionX, 597, 40, 4);
   }
   drawWorldRect('#6b6a78', 700, 500, 200, 200);
+  drawWorldRect('rgba(20,18,29,.28)', 0, 636, WW, 5);
+  const visibleLeft = Math.max(0, Math.floor(gameState.camera.x / 40) * 40);
+  const visibleRight = Math.min(WW, gameState.camera.x + 680);
+  for (let tileX = visibleLeft; tileX < visibleRight; tileX += 40) {
+    for (let tileY = Math.max(0, Math.floor(gameState.camera.y / 40) * 40); tileY < gameState.camera.y + 500; tileY += 40) {
+      const pattern = Math.abs((tileX * 17 + tileY * 31) % 11);
+      if (pattern < 3) {
+        drawWorldRect('rgba(170,220,125,.13)', tileX + pattern * 7, tileY + 8, 2, 3);
+      }
+    }
+  }
   for (const worldObject of BUILDINGS) {
+    drawWorldRect('rgba(10,10,22,.42)', worldObject.x - 5, worldObject.y + worldObject.h - 2, worldObject.w + 10, 12);
     drawWorldRect(worldObject.color, worldObject.x, worldObject.y, worldObject.w, worldObject.h);
     drawWorldRect('rgba(0,0,0,.3)', worldObject.x, worldObject.y, worldObject.w, 16);
+    drawWorldRect('rgba(255,220,160,.18)', worldObject.x + 4, worldObject.y + 18, 3, worldObject.h - 54);
+    for (let brickX = worldObject.x + 8; brickX < worldObject.x + worldObject.w - 8; brickX += 26) {
+      drawWorldRect('rgba(20,18,29,.18)', brickX, worldObject.y + 26, 18, 2);
+      drawWorldRect('rgba(20,18,29,.18)', brickX - 7, worldObject.y + 48, 18, 2);
+    }
+    drawWorldRect('rgba(255,235,190,.26)', worldObject.x - 2, worldObject.y - 3, worldObject.w + 4, 4);
+    drawWorldRect('rgba(20,18,29,.28)', worldObject.x, worldObject.y + worldObject.h - 3, worldObject.w, 5);
     drawWorldRect('#2a1a10', worldObject.x + worldObject.w / 2 - 16, worldObject.y + worldObject.h - 34, 32, 34);
     drawText(
       worldObject.label,
@@ -73,8 +110,11 @@ function ground() {
     );
   }
   for (const car of BURNT_CARS) {
+    shadow(car.x + car.w / 2, car.y + car.h, car.w * 0.65);
     drawWorldRect('#1d1d1d', car.x, car.y, car.w, car.h);
     drawWorldRect('#ff6a1a', car.x + 8, car.y + 6, 22, 10);
+    drawWorldRect('#ffcd5c', car.x + 14, car.y + 4, 8, 4);
+    glow(car.x + 18 - gameState.camera.x, car.y + 10 - gameState.camera.y, 54, '255,100,30', 0.48);
   }
 }
 /** Dibuja un árbol y su sombra en coordenadas de pantalla.
@@ -96,6 +136,9 @@ function tree(treeData) {
   ctx.beginPath();
   ctx.arc(positionX - 4, positionY - 18, 10, 0, 7);
   ctx.fill();
+  ctx.fillStyle = 'rgba(190,235,145,.45)';
+  ctx.fillRect(positionX - 10 + Math.sin(gameState.now / 700 + treeData.x) * 2, positionY - 23, 3, 2);
+  ctx.fillRect(positionX + 4 + Math.sin(gameState.now / 820 + treeData.y) * 2, positionY - 15, 2, 2);
 }
 /** Dibuja un objeto recolectable con sombra y resplandor.
  */
@@ -125,6 +168,9 @@ function box(worldObject) {
   const positionX = worldObject.x - gameState.camera.x + Math.sin(gameState.now / 25) * worldObject.shake * 3,
     positionY = worldObject.y - gameState.camera.y;
   shadow(worldObject.x + 20, worldObject.y + 24, 22);
+  if (gameState.zone === 2) {
+    glow(positionX + 20, positionY + 2, 32, '80,175,255', 0.12 + (worldObject.wetness ?? 0) / 100 * 0.2);
+  }
   drawRect('#e0a53a', positionX, positionY, 40, 24);
   drawRect('#b9792a', positionX, positionY + 8, 40, 4);
   drawRect('#c98f2e', positionX, positionY + 16, 40, 8);
@@ -192,6 +238,8 @@ export function renderWorld() {
   drawQueue.push([gameState.player.y + gameState.player.h, () => {
     const playerX = gameState.player.x - gameState.camera.x;
     const playerY = gameState.player.y - gameState.camera.y;
+    shadow(gameState.player.x + gameState.player.w / 2, gameState.player.y + gameState.player.h, 11);
+    glow(playerX + 7, playerY - 3, 34, '95,230,255', 0.2);
     drawPlayer(playerX, playerY, gameState.player, gameState.now, gameState.isMoving, gameState.walkingAnimationTime);
     if (gameState.player.umbrellaCoverage && gameState.missionPhase === 1) {
       umbrella(playerX + 7, playerY - 10);
