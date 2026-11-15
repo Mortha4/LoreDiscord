@@ -7,6 +7,18 @@ import { beep } from './AudioSystem.js';
 const rainSplashes = [];
 let ambienceTimer = 0;
 
+/** Devuelve un número finito para prevenir argumentos inválidos en Canvas. */
+function finiteNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+/** Deja el contexto en modo normal al terminar un efecto visual. */
+function resetContext(ctx) {
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+}
+
 /** Actualiza las transiciones y los efectos temporales de presentación. */
 export function updateVFX(deltaTime) {
   const interpolation = 1 - Math.exp(-deltaTime * 3.2);
@@ -147,20 +159,33 @@ function updateGameParticles(deltaTime) {
 
 /** Dibuja una luz radial aditiva, sin dejar estado global del contexto alterado. */
 export function glow(positionX, positionY, radius, color, opacity) {
-  if (radius <= 0 || opacity <= 0) {
+  positionX = finiteNumber(positionX, NaN);
+  positionY = finiteNumber(positionY, NaN);
+  radius = Math.max(0.1, Math.abs(finiteNumber(radius, 0.1)));
+  opacity = Math.max(0, Math.min(1, finiteNumber(opacity)));
+  if (!Number.isFinite(positionX) || !Number.isFinite(positionY) || opacity <= 0) {
     return;
   }
   const ctx = getCanvasContext();
+  if (!ctx) {
+    return;
+  }
   ctx.save();
   try {
     ctx.globalCompositeOperation = 'lighter';
-    const gradient = ctx.createRadialGradient(positionX, positionY, 0, positionX, positionY, radius);
-    gradient.addColorStop(0, `rgba(${color},${opacity})`);
-    gradient.addColorStop(1, `rgba(${color},0)`);
-    ctx.fillStyle = gradient;
+    try {
+      const safeRadius = Math.max(0.1, radius);
+      const gradient = ctx.createRadialGradient(positionX, positionY, 0, positionX, positionY, safeRadius);
+      gradient.addColorStop(0, `rgba(${color},${opacity})`);
+      gradient.addColorStop(1, `rgba(${color},0)`);
+      ctx.fillStyle = gradient;
+    } catch (error) {
+      ctx.fillStyle = `rgba(${color},${opacity * 0.12})`;
+    }
     ctx.fillRect(positionX - radius, positionY - radius, radius * 2, radius * 2);
   } finally {
     ctx.restore();
+    resetContext(ctx);
   }
 }
 
@@ -251,37 +276,71 @@ function drawAtmosphericParticles(ctx) {
 }
 
 /** Aplica la paleta de zona, relámpagos, lluvia y acabado cinematográfico. */
-export function lighting() {
+function lightingUnsafe() {
   const ctx = getCanvasContext();
-  const [red, green, blue, alpha] = gameState.ambientLight;
+  if (!ctx) {
+    return;
+  }
+  const ambient = Array.isArray(gameState.ambientLight) ? gameState.ambientLight : AMBIENT_LIGHTING[0];
+  const red = Math.max(0, Math.min(255, finiteNumber(ambient[0], 255)));
+  const green = Math.max(0, Math.min(255, finiteNumber(ambient[1], 150)));
+  const blue = Math.max(0, Math.min(255, finiteNumber(ambient[2], 40)));
+  const alpha = Math.max(0, Math.min(1, finiteNumber(ambient[3], 0.12)));
   ctx.fillStyle = `rgba(${red | 0},${green | 0},${blue | 0},${alpha})`;
   ctx.fillRect(0, 0, CW, CH);
 
   if (gameState.zone === 0) {
     drawSunRays(ctx);
-    const heat = 0.035 + Math.sin(gameState.now / 420) * 0.012;
-    const heatGradient = ctx.createLinearGradient(0, 0, 0, CH);
-    heatGradient.addColorStop(0, `rgba(255,150,60,${heat})`);
-    heatGradient.addColorStop(0.2, 'transparent');
-    heatGradient.addColorStop(0.8, 'transparent');
-    heatGradient.addColorStop(1, `rgba(255,130,55,${heat})`);
-    ctx.fillStyle = heatGradient;
+    const heat = 0.035 + Math.sin(finiteNumber(gameState.now) / 420) * 0.012;
+    try {
+      const heatGradient = ctx.createLinearGradient(0, 0, 0, Math.max(0.1, CH));
+      heatGradient.addColorStop(0, `rgba(255,150,60,${heat})`);
+      heatGradient.addColorStop(0.2, 'transparent');
+      heatGradient.addColorStop(0.8, 'transparent');
+      heatGradient.addColorStop(1, `rgba(255,130,55,${heat})`);
+      ctx.fillStyle = heatGradient;
+    } catch (error) {
+      ctx.fillStyle = `rgba(255,145,55,${heat * 0.2})`;
+    }
     ctx.fillRect(0, 0, CW, CH);
   } else if (gameState.zone === 1) {
     drawLibraryLights();
   }
 
-  if (gameState.lightningFlash > 0) {
-    const flashOpacity = gameState.lightningFlash * 0.62;
+  const lightningFlash = Math.max(0, Math.min(1, finiteNumber(gameState.lightningFlash)));
+  if (lightningFlash > 0) {
+    const flashOpacity = lightningFlash * 0.62;
     ctx.fillStyle = `rgba(210,230,255,${flashOpacity})`;
     ctx.fillRect(0, 0, CW, CH);
-    glow(CW * 0.74, CH * 0.2, 280, '175,210,255', gameState.lightningFlash * 0.55);
+    glow(CW * 0.74, CH * 0.2, 280, '175,210,255', lightningFlash * 0.55);
   }
 
   drawAtmosphericParticles(ctx);
-  const vignette = ctx.createRadialGradient(CW / 2, CH / 2, 190, CW / 2, CH / 2, 440);
-  vignette.addColorStop(0, 'rgba(5,7,18,0)');
-  vignette.addColorStop(1, 'rgba(5,7,18,.48)');
-  ctx.fillStyle = vignette;
+  let vignette;
+  try {
+    vignette = ctx.createRadialGradient(CW / 2, CH / 2, 190, CW / 2, CH / 2, 440);
+    vignette.addColorStop(0, 'rgba(5,7,18,0)');
+    vignette.addColorStop(1, 'rgba(5,7,18,.48)');
+    ctx.fillStyle = vignette;
+  } catch (error) {
+    ctx.fillStyle = 'rgba(5,7,18,.08)';
+  }
   ctx.fillRect(0, 0, CW, CH);
+}
+
+/** Aísla los efectos de luz y mantiene visible el mundo si fallan. */
+export function lighting() {
+  const ctx = getCanvasContext();
+  if (!ctx) {
+    return;
+  }
+  ctx.save();
+  try {
+    lightingUnsafe();
+  } catch (error) {
+    console.error('[FIUBA LORE] Falló la iluminación:', error);
+  } finally {
+    ctx.restore();
+    resetContext(ctx);
+  }
 }

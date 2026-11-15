@@ -7,6 +7,23 @@ import { WW } from '../model/Config.js';
 import { BUILDINGS, NPCS, BURNT_CARS, TREES } from '../model/WorldData.js';
 import { rect as drawRect, text as drawText, burger, calc, drawPlayer, drawEnemy } from './Sprites.js';
 import { glow } from './LightingAndVFX.js';
+
+/** Convierte valores de estado a números finitos antes de enviarlos al Canvas. */
+function finiteNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+/** Devuelve un radio válido para las APIs de gradientes radiales. */
+function safeRadius(value, fallback = 1) {
+  return Math.max(0.1, Math.abs(finiteNumber(value, fallback)));
+}
+
+/** Deja el contexto en el estado neutro esperado por el resto del juego. */
+function resetContext(ctx) {
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+}
 /** Dibuja un rectángulo del mundo transformado por la cámara.
  */
 const drawWorldRect = (color, positionX, positionY, width, height) => {
@@ -16,8 +33,14 @@ const drawWorldRect = (color, positionX, positionY, width, height) => {
  */
 function shadow(positionX, positionY, width) {
   const ctx = getCanvasContext();
+  if (!ctx) {
+    return;
+  }
+  positionX = finiteNumber(positionX);
+  positionY = finiteNumber(positionY);
+  width = safeRadius(width);
   const stormFactor = gameState.zone === 2 ? 1 : 0;
-  const flashFactor = gameState.lightningFlash ?? 0;
+  const flashFactor = Math.max(0, Math.min(1, finiteNumber(gameState.lightningFlash)));
   const offsetX = 5 + stormFactor * 7 - flashFactor * 5;
   const offsetY = 2 + stormFactor * 5 - flashFactor * 3;
   const shadowOpacity = 0.22 + stormFactor * 0.15 - flashFactor * 0.13;
@@ -27,32 +50,43 @@ function shadow(positionX, positionY, width) {
   try {
     ctx.translate(screenX, screenY);
     ctx.scale(1, 0.38 + stormFactor * 0.08);
-    const shadowGradient = ctx.createRadialGradient(0, 0, width * 0.12, 0, 0, width * (1.2 + stormFactor * 0.3));
-    shadowGradient.addColorStop(0, `rgba(4,7,18,${shadowOpacity})`);
-    shadowGradient.addColorStop(0.65, `rgba(4,7,18,${shadowOpacity * 0.48})`);
-    shadowGradient.addColorStop(1, 'rgba(4,7,18,0)');
-    ctx.fillStyle = shadowGradient;
+    try {
+      const innerRadius = Math.max(0.1, width * 0.12);
+      const outerRadius = Math.max(innerRadius + 0.1, width * (1.2 + stormFactor * 0.3));
+      const shadowGradient = ctx.createRadialGradient(0, 0, innerRadius, 0, 0, outerRadius);
+      shadowGradient.addColorStop(0, `rgba(4,7,18,${shadowOpacity})`);
+      shadowGradient.addColorStop(0.65, `rgba(4,7,18,${shadowOpacity * 0.48})`);
+      shadowGradient.addColorStop(1, 'rgba(4,7,18,0)');
+      ctx.fillStyle = shadowGradient;
+    } catch (error) {
+      ctx.fillStyle = `rgba(4,7,18,${shadowOpacity * 0.5})`;
+    }
     ctx.fillRect(-width * 1.6, -width * 1.6, width * 3.2, width * 3.2);
   } finally {
     ctx.restore();
+    resetContext(ctx);
   }
 }
 
 /** Dibuja el cono de visión de un guardia en dirección a su patrulla o al jugador. */
 function drawGuardVisionCone(enemy, positionX, positionY) {
   const ctx = getCanvasContext();
-  const centerX = positionX + enemy.w / 2;
-  const centerY = positionY + enemy.h / 2;
+  const centerX = finiteNumber(positionX) + safeRadius(enemy?.w, 16) / 2;
+  const centerY = finiteNumber(positionY) + safeRadius(enemy?.h, 18) / 2;
   const angle = enemy.isChasingPlayer
     ? Math.atan2(gameState.player.y - enemy.y, gameState.player.x - enemy.x)
     : enemy.direction > 0 ? 0 : Math.PI;
   ctx.save();
   try {
     ctx.globalCompositeOperation = 'lighter';
-    const gradient = ctx.createRadialGradient(centerX, centerY, 6, centerX, centerY, 130);
-    gradient.addColorStop(0, 'rgba(255,60,60,.32)');
-    gradient.addColorStop(1, 'rgba(255,60,60,0)');
-    ctx.fillStyle = gradient;
+    try {
+      const gradient = ctx.createRadialGradient(centerX, centerY, 6, centerX, centerY, 130);
+      gradient.addColorStop(0, 'rgba(255,60,60,.32)');
+      gradient.addColorStop(1, 'rgba(255,60,60,0)');
+      ctx.fillStyle = gradient;
+    } catch (error) {
+      ctx.fillStyle = 'rgba(255,60,60,.12)';
+    }
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
     ctx.arc(centerX, centerY, 130, angle - 1.05, angle + 1.05);
@@ -60,6 +94,7 @@ function drawGuardVisionCone(enemy, positionX, positionY) {
     ctx.fill();
   } finally {
     ctx.restore();
+    resetContext(ctx);
   }
 }
 /** Dibuja césped, caminos, edificios, marcas y autos quemados.
@@ -174,11 +209,13 @@ function item(object) {
 /** Dibuja una caja de comida con humedad y cobertura visibles.
  */
 function box(worldObject) {
-  const positionX = worldObject.x - gameState.camera.x + Math.sin(gameState.now / 25) * worldObject.shake * 3;
-  const positionY = worldObject.y - gameState.camera.y;
+  const shake = finiteNumber(worldObject.shake);
+  const wetness = Math.max(0, Math.min(100, finiteNumber(worldObject.wetness)));
+  const positionX = finiteNumber(worldObject.x) - finiteNumber(gameState.camera.x) + Math.sin(finiteNumber(gameState.now) / 25) * shake * 3;
+  const positionY = finiteNumber(worldObject.y) - finiteNumber(gameState.camera.y);
   shadow(worldObject.x + 20, worldObject.y + 24, 22);
   if (gameState.zone === 2) {
-    glow(positionX + 20, positionY + 2, 32, '80,175,255', 0.12 + (worldObject.wetness ?? 0) / 100 * 0.2);
+    glow(positionX + 20, positionY + 2, 32, '80,175,255', 0.12 + wetness / 100 * 0.2);
   }
   drawRect('#e0a53a', positionX, positionY, 40, 24);
   drawRect('#b9792a', positionX, positionY + 8, 40, 4);
@@ -186,7 +223,7 @@ function box(worldObject) {
   drawRect('rgba(255,232,175,.45)', positionX + 3, positionY + 3, 10, 2);
   drawRect('rgba(91,51,20,.35)', positionX + 18, positionY + 2, 2, 20);
   drawText(worldObject.label, positionX + 20, positionY + 19, 5, '#222', 'center');
-  getCanvasContext().fillStyle = `rgba(20,50,110,${worldObject.wetness / 100 * .6})`;
+  getCanvasContext().fillStyle = `rgba(20,50,110,${wetness / 100 * .6})`;
   getCanvasContext().fillRect(positionX, positionY, 40, 24);
   if (worldObject.covered) {
     getCanvasContext().strokeStyle = '#4de3d6';
@@ -196,9 +233,9 @@ function box(worldObject) {
 
 /** Dibuja las partículas que producen combate, pasos y recompensas. */
 function drawParticle(particle, ctx) {
-  const alpha = Math.max(0, Math.min(1, particle.lifetime / 0.7));
-  const screenX = particle.x - gameState.camera.x;
-  const screenY = particle.y - gameState.camera.y;
+  const alpha = Math.max(0, Math.min(1, finiteNumber(particle?.lifetime) / 0.7));
+  const screenX = finiteNumber(particle?.x) - finiteNumber(gameState.camera.x);
+  const screenY = finiteNumber(particle?.y) - finiteNumber(gameState.camera.y);
   const size = 1.5 + alpha * 2.5;
   ctx.save();
   try {
@@ -210,13 +247,14 @@ function drawParticle(particle, ctx) {
     }
   } finally {
     ctx.restore();
+    resetContext(ctx);
   }
 }
 
 /** Agrega una línea de árboles y edificios lejanos con desplazamiento parallax. */
 function drawParallaxSkyline(ctx) {
-  const parallaxOffset = (gameState.camera.x * 0.16) % 720;
-  const skylineY = 48 - gameState.camera.y * 0.12;
+  const parallaxOffset = (finiteNumber(gameState.camera.x) * 0.16) % 720;
+  const skylineY = 48 - finiteNumber(gameState.camera.y) * 0.12;
   ctx.save();
   try {
     ctx.globalAlpha = 0.2;
@@ -235,6 +273,7 @@ function drawParallaxSkyline(ctx) {
     }
   } finally {
     ctx.restore();
+    resetContext(ctx);
   }
 }
 
@@ -246,7 +285,7 @@ function umbrella(positionX, positionY) {
 }
 /** Ordena y dibuja terreno, entidades, efectos y guía de misión.
  */
-export function renderWorld() {
+function renderWorldUnsafe() {
   const ctx = getCanvasContext();
   ctx.fillStyle = '#25803b';
   ctx.fillRect(0, 0, 640, 480);
@@ -340,5 +379,24 @@ export function renderWorld() {
     ctx.lineTo(positionX + Math.cos(angle + 2.5) * 6, positionY + Math.sin(angle + 2.5) * 6);
     ctx.lineTo(positionX + Math.cos(angle - 2.5) * 6, positionY + Math.sin(angle - 2.5) * 6);
     ctx.fill();
+  }
+}
+
+/** Renderiza el mundo con un fallback visible si un efecto visual falla. */
+export function renderWorld() {
+  const ctx = getCanvasContext();
+  if (!ctx) {
+    return;
+  }
+  ctx.save();
+  try {
+    renderWorldUnsafe();
+  } catch (error) {
+    console.error('[FIUBA LORE] Falló el render del mundo:', error);
+    ctx.fillStyle = '#25803b';
+    ctx.fillRect(0, 0, 640, 480);
+  } finally {
+    ctx.restore();
+    resetContext(ctx);
   }
 }

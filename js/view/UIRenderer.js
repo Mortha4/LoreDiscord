@@ -7,6 +7,18 @@ import { NPCS } from '../model/WorldData.js';
 import { QUESTS } from '../model/QuestsData.js';
 import { rect as drawRect, text as drawText, burger, calc, discord, elephant, drawPlayer } from './Sprites.js';
 import { glow } from './LightingAndVFX.js';
+
+/** Convierte datos de estado a valores numéricos válidos para Canvas. */
+function finiteNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+/** Restaura el estado neutro compartido por los módulos de dibujo. */
+function resetContext(ctx) {
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+}
 /** Devuelve la misión activa o undefined al terminar la lista.
  */
 const getCurrentQuest = () => QUESTS[gameState.currentQuestIndex];
@@ -32,15 +44,22 @@ const getQuestProgress = () => {
  */
 function panel(positionX, positionY, width, height) {
   const ctx = getCanvasContext();
+  if (!ctx) {
+    return;
+  }
   ctx.save();
   try {
     ctx.shadowColor = 'rgba(0,0,0,.58)';
     ctx.shadowBlur = 8;
     ctx.shadowOffsetY = 3;
-    const gradient = ctx.createLinearGradient(positionX, positionY, positionX, positionY + height);
-    gradient.addColorStop(0, 'rgba(31,39,57,.96)');
-    gradient.addColorStop(1, 'rgba(12,16,29,.94)');
-    ctx.fillStyle = gradient;
+    try {
+      const gradient = ctx.createLinearGradient(positionX, positionY, positionX, positionY + Math.max(0.1, finiteNumber(height, 1)));
+      gradient.addColorStop(0, 'rgba(31,39,57,.96)');
+      gradient.addColorStop(1, 'rgba(12,16,29,.94)');
+      ctx.fillStyle = gradient;
+    } catch (error) {
+      ctx.fillStyle = 'rgba(15,20,30,.96)';
+    }
     ctx.strokeStyle = 'rgba(77,227,214,.82)';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -57,20 +76,27 @@ function panel(positionX, positionY, width, height) {
     ctx.fillRect(positionX + 10, positionY + 3, Math.max(0, width - 20), 1);
   } finally {
     ctx.restore();
+    resetContext(ctx);
   }
 }
 /** Dibuja una barra de progreso con relleno de color.
  */
 function bar(positionX, positionY, width, value, color) {
+  width = Math.max(0, finiteNumber(width));
+  value = finiteNumber(value);
   const safeValue = Math.max(0, Math.min(1, value));
   drawRect('#080b14', positionX, positionY, width, 12);
   const ctx = getCanvasContext();
   if (safeValue > 0) {
     const fillWidth = width * safeValue;
-    const fillGradient = ctx.createLinearGradient(positionX, 0, positionX + fillWidth, 0);
-    fillGradient.addColorStop(0, color);
-    fillGradient.addColorStop(1, '#d8fff4');
-    ctx.fillStyle = fillGradient;
+    try {
+      const fillGradient = ctx.createLinearGradient(positionX, 0, positionX + Math.max(0.1, fillWidth), 0);
+      fillGradient.addColorStop(0, color);
+      fillGradient.addColorStop(1, '#d8fff4');
+      ctx.fillStyle = fillGradient;
+    } catch (error) {
+      ctx.fillStyle = color;
+    }
     ctx.fillRect(positionX, positionY, fillWidth, 12);
     ctx.fillStyle = 'rgba(255,255,255,.3)';
     ctx.fillRect(positionX, positionY, fillWidth, 2);
@@ -88,14 +114,19 @@ function menu() {
   }
   drawText('FIUBA LORE', 320, 72, 26, '#4de3d6', 'center');
   const ctx = getCanvasContext();
-  const skyGradient = ctx.createLinearGradient(0, 120, 0, 295);
-  skyGradient.addColorStop(0, '#172547');
-  skyGradient.addColorStop(1, '#6fb3ff');
-  ctx.fillStyle = skyGradient;
+  let skyGradient;
+  try {
+    skyGradient = ctx.createLinearGradient(0, 120, 0, 295);
+    skyGradient.addColorStop(0, '#172547');
+    skyGradient.addColorStop(1, '#6fb3ff');
+    ctx.fillStyle = skyGradient;
+  } catch (error) {
+    ctx.fillStyle = '#31527c';
+  }
   ctx.fillRect(130, 120, 380, 155);
   panel(115, 105, 410, 260);
   drawRect('#6fb3ff', 130, 120, 380, 220);
-  ctx.fillStyle = skyGradient;
+  ctx.fillStyle = skyGradient ?? '#31527c';
   ctx.fillRect(130, 120, 380, 155);
   drawRect('#3f8a3f', 130, 275, 380, 65);
   drawPlayer(302, 188, {
@@ -109,11 +140,12 @@ function menu() {
   elephant(458, 318, 1.5);
   drawText('KUPACRAFT', 320, 352, 14, '#fff', 'center');
   drawText('Flechas / WASD · ESPACIO · E', 320, 405, 8, '#f4e9c8', 'center');
-  const over = gameState.mouse.x > 175 && gameState.mouse.x < 465 && gameState.mouse.y > 415 && gameState.mouse.y < 465;
+  const pointerX = finiteNumber(gameState.mouse?.x, -1);
+  const pointerY = finiteNumber(gameState.mouse?.y, -1);
+  const over = pointerX > 175 && pointerX < 465 && pointerY > 415 && pointerY < 465;
   if (over) {
-    glow(320, 438, 110, '77,227,214', 0.22 + Math.sin(gameState.now / 150) * 0.04);
+    glow(320, 438, 110, '77,227,214', 0.22 + Math.sin(finiteNumber(gameState.now) / 150) * 0.04);
   }
-  const ctx = getCanvasContext();
   ctx.save();
   try {
     const hoverScale = over ? 1.025 : 1;
@@ -123,6 +155,7 @@ function menu() {
     panel(175, 417, 290, 42);
   } finally {
     ctx.restore();
+    resetContext(ctx);
   }
   drawText('JUGAR', 320, 444, 9, over ? '#4de3d6' : '#ffcf33', 'center');
   if (over) {
@@ -146,7 +179,7 @@ function getMissionInstruction(quest) {
 
 /** Dibuja menú, HUD, diálogos y pantallas de victoria o derrota.
  */
-export function renderUI() {
+function renderUIUnsafe() {
   const ctx = getCanvasContext();
   if (gameState.gameStatus === 'menu') {
     menu();
@@ -206,14 +239,47 @@ export function renderUI() {
     drawText(subtitle, 320, 270, 8, '#ffcf33', 'center');
   }
 }
+
+/** Renderiza la interfaz con fallback visible ante errores de presentación. */
+export function renderUI() {
+  const ctx = getCanvasContext();
+  if (!ctx) {
+    return;
+  }
+  ctx.save();
+  try {
+    renderUIUnsafe();
+  } catch (error) {
+    console.error('[FIUBA LORE] Falló el render de la interfaz:', error);
+    ctx.fillStyle = 'rgba(10,12,24,.9)';
+    ctx.fillRect(0, 0, 640, 480);
+    ctx.fillStyle = '#f4e9c8';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('FIUBA LORE', 320, 240);
+  } finally {
+    ctx.restore();
+    resetContext(ctx);
+  }
+}
 /** Dibuja la transición de apertura o cierre de pantalla.
  */
 export function renderCurtain() {
-  if (gameState.fade > 0) {
-    const ctx = getCanvasContext(),
-      width = 320 * Math.min(1, gameState.fade * 1.2);
+  const fade = Math.max(0, Math.min(1, finiteNumber(gameState.fade)));
+  if (fade > 0) {
+    const ctx = getCanvasContext();
+    if (!ctx) {
+      return;
+    }
+    const width = 320 * Math.min(1, fade * 1.2);
+    ctx.save();
+    try {
     ctx.fillStyle = '#0d0c1a';
     ctx.fillRect(0, 0, width, 480);
     ctx.fillRect(640 - width, 0, width, 480);
+    } finally {
+      ctx.restore();
+      resetContext(ctx);
+    }
   }
 }
