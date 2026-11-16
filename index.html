@@ -1,20 +1,337 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#060d1f">
-    <meta name="description" content="FIUBA LORE: aventura pixel art arcade para sobrevivir la cursada.">
-    <title>FIUBA LORE — Arcade</title>
-    <link rel="stylesheet" href="css/styles.css">
-  </head>
-  <body>
-    <main id="wrap" aria-label="FIUBA LORE">
-      <div class="screen-frame">
-        <canvas id="c" width="640" height="480" aria-label="FIUBA LORE, videojuego"></canvas>
-        <span class="screen-texture" aria-hidden="true"></span>
-      </div>
-    </main>
-    <script type="module" src="js/main.js"></script>
-  </body>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Valle Cosecha</title>
+<style>
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;overflow:hidden;background:#2b3a1e;font-family:"Trebuchet MS",Verdana,sans-serif;color:#3b2412;user-select:none}
+canvas#game{display:block;position:fixed;inset:0;image-rendering:pixelated}
+.screen{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:22px;z-index:10;padding:16px;text-align:center}
+.screen.on{display:flex}
+#menu{background:linear-gradient(#8fd3f4 0 58%,#6fbf4f 58%);overflow:hidden}
+#menu::before{content:"";position:absolute;width:110px;height:110px;border-radius:50%;background:#ffd84a;top:9%;right:12%;box-shadow:0 0 0 14px #ffe98a66}
+#menu::after{content:"";position:absolute;left:-10%;right:-10%;bottom:-30%;height:55%;border-radius:50%;background:#58a63f}
+#menu>*,#select>*{position:relative;z-index:1}
+#select{background:linear-gradient(#bfe6a0,#8ccb64)}
+.sign{background:#a9702f;border:6px solid #5d3a16;border-radius:10px;padding:14px 38px;box-shadow:0 8px 0 #3e2610;font-size:clamp(38px,9vw,84px);font-weight:900;color:#ffe9a8;text-shadow:4px 4px 0 #5d3a16;letter-spacing:2px;transform:rotate(-2deg)}
+.sub{font-size:20px;font-weight:700;color:#2d4a14;background:#fff8dcd0;padding:6px 16px;border-radius:8px}
+.btn{font:900 28px "Trebuchet MS",sans-serif;padding:14px 56px;border:5px solid #5d3a16;border-radius:12px;background:#e8b13a;color:#4a2a0c;box-shadow:0 7px 0 #8a5a1a;cursor:pointer}
+.btn:hover{background:#f4c453}.btn:active{transform:translateY(5px);box-shadow:0 2px 0 #8a5a1a}
+.btn:disabled{background:#b9a77c;color:#7a6a48;cursor:not-allowed;box-shadow:0 7px 0 #8a7a54}
+.btn:focus-visible,.card:focus-visible,.slot:focus-visible{outline:4px solid #2b6cff;outline-offset:3px}
+h2{font-size:clamp(26px,5vw,42px);color:#4a2a0c}
+#cards{display:flex;gap:18px;flex-wrap:wrap;justify-content:center}
+.card{width:210px;background:#fff1c9;border:5px solid #8a5a1a;border-radius:12px;padding:12px;cursor:pointer;box-shadow:0 6px 0 #5d3a16;font:inherit;color:inherit}
+.card:hover{transform:translateY(-4px)}
+.card.on{border-color:#2f9e44;background:#e3f7c8;box-shadow:0 6px 0 #1d6b2d}
+.card h3{font-size:24px;margin:4px 0}.card p{font-size:14px;margin-bottom:8px;min-height:54px}
+.stat{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;margin:3px 0}
+.stat span{width:68px;text-align:left}.bar{flex:1;height:10px;background:#d9c28e;border-radius:5px;overflow:hidden}
+.bar i{display:block;height:100%;background:#3fa34d}
+#hud{position:fixed;inset:0;pointer-events:none;display:none;z-index:5}
+#hud.on{display:block}
+#who{position:absolute;top:12px;left:12px;display:flex;gap:10px;align-items:center;background:#fff1c9ee;border:4px solid #8a5a1a;border-radius:10px;padding:6px 14px 6px 8px;font-size:18px;font-weight:700}
+#who b{font-size:20px}
+#help{position:absolute;top:12px;right:12px;background:#2b1a0cb8;color:#fff1c9;border-radius:10px;padding:8px 12px;font-size:13px;line-height:1.7}
+kbd{background:#fff1c9;color:#3b2412;border-radius:4px;padding:0 5px;font:700 12px monospace}
+#prompt,#toast{position:absolute;left:50%;transform:translateX(-50%);padding:8px 18px;border-radius:10px;font-weight:700;display:none}
+#prompt{bottom:110px;background:#fff1c9;border:3px solid #8a5a1a;color:#4a2a0c}
+#toast{top:84px;background:#2b1a0ce0;color:#fff1c9}
+#hotbar{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:6px;background:#5d3a16d8;padding:6px;border-radius:12px;pointer-events:auto}
+.slot{width:64px;height:76px;background:#e9cf9a;border:4px solid #8a5a1a;border-radius:8px;position:relative;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;font:inherit;color:#3b2412}
+.slot.on{border-color:#2f9e44;background:#f6ffd8;transform:translateY(-6px)}
+.slot i{position:absolute;top:1px;left:4px;font:700 11px monospace;font-style:normal}
+.slot .ic{font-size:28px;line-height:1.1}.slot small{font-size:10px;font-weight:700}
+.slot b{position:absolute;right:4px;top:2px;font-size:13px}
+#shop{background:#1d120a99}
+.panel{background:#fff1c9;border:6px solid #5d3a16;border-radius:14px;padding:20px;width:min(760px,96vw);max-height:92vh;overflow:auto;text-align:left}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:640px){.cols{grid-template-columns:1fr}}
+.row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:2px dashed #c9a96a;font-weight:700}
+.row .nm{flex:1}.row button{font:700 14px "Trebuchet MS",sans-serif;padding:6px 10px;border:3px solid #5d3a16;border-radius:8px;background:#e8b13a;cursor:pointer}
+.row button:disabled{opacity:.45;cursor:not-allowed}
+.empty{padding:10px 0;color:#7a5a2a}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<section id="menu" class="screen on">
+  <div class="sign">Valle Cosecha</div>
+  <p class="sub">Arar, plantar, regar y cosechar</p>
+  <button class="btn" id="play">JUGAR</button>
+</section>
+
+<section id="select" class="screen">
+  <h2>Elegí a tu granjero</h2>
+  <div id="cards"></div>
+  <button class="btn" id="start" disabled>Empezar</button>
+</section>
+
+<div id="hud">
+  <div id="who"><canvas id="face" width="48" height="56"></canvas><div><b id="pname"></b><br>Monedas: <span id="money"></span></div></div>
+  <div id="help"><kbd>WASD</kbd> / <kbd>Flechas</kbd> moverse<br><kbd>Espacio</kbd> / <kbd>E</kbd> / clic usar<br><kbd>1</kbd>-<kbd>8</kbd> elegir objeto<br><kbd>F</kbd> / <kbd>Enter</kbd> tienda</div>
+  <div id="prompt">F o Enter: abrir la tienda</div>
+  <div id="toast"></div>
+  <div id="hotbar"></div>
+</div>
+
+<section id="shop" class="screen">
+  <div class="panel">
+    <h2>Tienda de Semillas</h2>
+    <p style="margin:6px 0 14px;font-weight:700">Tus monedas: <span id="shopMoney"></span></p>
+    <div class="cols"><div><h3>Comprar semillas</h3><div id="buyList"></div></div><div><h3>Vender cosechas</h3><div id="sellList"></div></div></div>
+    <div style="text-align:right;margin-top:16px"><button class="btn" id="closeShop" style="font-size:20px;padding:8px 30px">Cerrar (Esc)</button></div>
+  </div>
+</section>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+
+/* ---------- Constantes y datos ---------- */
+const TS = 32, W = 50, H = 40, Z = 2, WET = 25;        // tamaño de tile, mapa, zoom, segundos de humedad
+const G = 0, PATH = 1, SOIL = 2, TILL = 3, TREE = 4, SHOP = 5, FLOW = 6; // tipos de tile
+const SB = { x: 34, y: 11, w: 5, h: 5 };               // caja de la tienda (en tiles)
+
+const CROPS = {
+  carrot: { n: 'Zanahoria', e: '🥕', grow: 20, seed: 10, sell: 25 },
+  tomato: { n: 'Tomate',    e: '🍅', grow: 35, seed: 20, sell: 50 },
+  corn:   { n: 'Maíz',      e: '🌽', grow: 55, seed: 35, sell: 90 }
+};
+// speed / grow / sell son multiplicadores reales; stats son barras visuales (1-5)
+const CHARS = [
+  { name: 'Kupitinchi', skin: '#f1c27d', hair: '#3b2a1a', shirt: '#3fa34d', acc: 'hat',  accC: '#e0c060', speed: 1.3, grow: 1,   sell: 1,   stats: [5, 3, 3], desc: 'Rápido como el viento. Con su sombrero de paja llega a todos lados primero.' },
+  { name: 'Morta',      skin: '#e8b49a', hair: '#5b2a86', shirt: '#8e44ad', acc: 'long', accC: '#f06292', speed: 1,   grow: 1.3, sell: 1,   stats: [3, 5, 3], desc: 'Tiene mano verde: sus cultivos crecen un 30% más rápido.' },
+  { name: 'Marxel',     skin: '#c68e5e', hair: '#1e1e1e', shirt: '#d9453a', acc: 'cap',  accC: '#2d6cdf', speed: 1,   grow: 1,   sell: 1.2, stats: [3, 3, 5], desc: 'Un comerciante nato: vende todo con un 20% de ganancia extra.' }
+];
+
+/* ---------- Estado ---------- */
+let state = 'menu', ch = null, money = 100, sel = 0, shopOpen = false, cool = 0;
+let map, crops = {}, wet = {};
+const inv = { 's:carrot': 5, 's:tomato': 3, 's:corn': 0, 'c:carrot': 0, 'c:tomato': 0, 'c:corn': 0 };
+const HB = [ { k: 'hoe', n: 'Azada', e: '⛏️' }, { k: 'can', n: 'Regadera', e: '🚿' } ];
+for (const id in CROPS) HB.push({ k: 's:' + id, n: 'Sem. ' + CROPS[id].n.slice(0, 6), e: CROPS[id].e });
+for (const id in CROPS) HB.push({ k: 'c:' + id, n: CROPS[id].n, e: CROPS[id].e });
+const p = { x: 14.5 * TS, y: 22 * TS, dir: 'down', t: 0, moving: false };
+const cam = { x: 0, y: 0 };
+const keys = {};
+
+/* ---------- Generación del mapa ---------- */
+function rng(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function fill(x, y, w, h, t) { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) map[j * W + i] = t; }
+function genMap() {
+  const r = rng(7); map = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const edge = x < 2 || y < 2 || x >= W - 2 || y >= H - 2, v = r();
+    map[y * W + x] = edge || v < 0.09 ? TREE : v < 0.15 ? FLOW : G;
+  }
+  fill(4, 9, 20, 16, G); fill(31, 9, 10, 10, G);     // despejar zonas de granja y tienda
+  fill(8, 12, 12, 9, SOIL);                           // parcela fértil
+  fill(4, 16, 4, 1, PATH); fill(20, 16, 19, 1, PATH); // camino hacia la tienda
+  fill(28, 16, 1, 17, PATH); fill(12, 21, 1, 4, PATH);
+  fill(SB.x, SB.y, SB.w, SB.h, SHOP);
+}
+const tileAt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? TREE : map[y * W + x];
+const solidAt = (px, py) => { const t = tileAt(Math.floor(px / TS), Math.floor(py / TS)); return t === TREE || t === SHOP; };
+const hit = (x, y) => solidAt(x - 9, y) || solidAt(x + 9, y) || solidAt(x - 9, y - 8) || solidAt(x + 9, y - 8);
+
+/* ---------- Sprites (pixel art por código) ---------- */
+function drawChar(g, c, x, y, u, dir, st) {
+  const R = (col, dx, dy, w, h) => { g.fillStyle = col; g.fillRect(Math.round(x + dx * u), Math.round(y + dy * u), Math.ceil(w * u), Math.ceil(h * u)); };
+  const s = st ? Math.sign(Math.sin(st)) : 0;
+  g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(x, y, 6 * u, 2 * u, 0, 0, 7); g.fill();
+  R('#33355e', -3, -4 - (s > 0 ? .8 : 0), 2.5, 4); R('#33355e', .5, -4 - (s < 0 ? .8 : 0), 2.5, 4);
+  R(c.shirt, -4, -10, 8, 6); R(c.shirt, -5.5, -10, 1.5, 5); R(c.shirt, 4, -10, 1.5, 5);
+  R(c.skin, -5.5, -5, 1.5, 1.5); R(c.skin, 4, -5, 1.5, 1.5);
+  R(c.skin, -4, -17, 8, 7);
+  if (dir === 'up') R(c.hair, -4, -17, 8, 7);
+  else { R(c.hair, -4, -17, 8, 2.5); R(c.hair, -4, -17, 1.5, 4); R(c.hair, 2.5, -17, 1.5, 4); }
+  if (dir !== 'up') { const ex = dir === 'left' ? -1 : dir === 'right' ? 1 : 0; R('#222', -2.5 + ex, -14, 1.2, 1.5); R('#222', 1.3 + ex, -14, 1.2, 1.5); }
+  if (c.acc === 'hat') { R(c.accC, -7, -18, 14, 2); R(c.accC, -4.5, -21.5, 9, 4); R('#a0522d', -4.5, -19, 9, 1); }
+  if (c.acc === 'long') { R(c.hair, -5, -17, 1.5, 11); R(c.hair, 3.5, -17, 1.5, 11); R(c.accC, -4, -17.5, 8, 1.2); }
+  if (c.acc === 'cap') { R(c.accC, -4.5, -20, 9, 3.5); if (dir === 'down') R(c.accC, -4.5, -16.5, 9, 1.2); if (dir === 'left') R(c.accC, -7, -17, 3, 1.2); if (dir === 'right') R(c.accC, 4, -17, 3, 1.2); }
+}
+const cv = $('#game'), g = cv.getContext('2d');
+const hash = (x, y) => (Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0;
+
+function drawGround(x, y) {
+  const t = map[y * W + x], px = x * TS, py = y * TS, h = hash(x, y);
+  const R = (c, a, b, w, hh) => { g.fillStyle = c; g.fillRect(px + a, py + b, w, hh); };
+  if (t === PATH) { R('#cfa971', 0, 0, TS, TS); R('#b58c58', h % 24, (h >> 5) % 24, 4, 3); R('#e0be88', (h >> 9) % 26, (h >> 3) % 26, 3, 3); }
+  else if (t === SOIL) { R('#7b4a24', 0, 0, TS, TS); R('#5c3516', h % 26, (h >> 4) % 26, 3, 3); R('#8d5a2e', (h >> 8) % 26, (h >> 2) % 26, 4, 2); }
+  else if (t === TILL) { const w = wet[x + ',' + y] > 0; R(w ? '#4b2a12' : '#6d3f1c', 0, 0, TS, TS); for (let i = 5; i < TS; i += 9) R('rgba(0,0,0,.22)', 0, i, TS, 3); }
+  else { R((h & 3) === 0 ? '#58a63f' : '#5fae45', 0, 0, TS, TS); R('#78c95b', h % 28, (h >> 6) % 28, 2, 4); R('#4a8f35', (h >> 11) % 28, (h >> 3) % 26, 2, 3);
+    if (t === FLOW) { R(['#ff7aa8', '#ffe14a', '#ffffff'][h % 3], 10 + h % 8, 10 + (h >> 4) % 8, 5, 5); R('#ffb000', 12 + h % 8, 12 + (h >> 4) % 8, 1, 1); } }
+}
+function drawTree(x, y) {
+  const px = x * TS, py = y * TS, h = hash(x, y) % 3, R = (c, a, b, w, hh) => { g.fillStyle = c; g.fillRect(px + a, py + b, w, hh); };
+  R('rgba(0,0,0,.2)', 4, 26, 24, 5); R('#6b4423', 13, 14, 6, 16);
+  const d = ['#2f7d32', '#2a7236', '#37862f'][h]; R(d, 6, -18, 20, 6); R(d, 2, -12, 28, 22); R('#3f9b3f', 6, -10, 12, 8); R('#58b84a', 8, -8, 5, 4);
+}
+function drawCrop(c, x, y) {
+  const px = x * TS + 16, b = y * TS + 28, p0 = c.p / c.def.grow, st = p0 < .4 ? 0 : p0 < 1 ? 1 : 2;
+  const R = (col, a, bb, w, h) => { g.fillStyle = col; g.fillRect(px + a, b + bb, w, h); };
+  if (st === 0) { R('#3b2210', -3, -6, 3, 3); R('#3b2210', 2, -4, 3, 3); R('#7ac74f', 0, -9, 2, 3); }
+  else if (st === 1) { R('#3f9b3f', -1, -14, 3, 12); R('#58b84a', -6, -14, 5, 3); R('#58b84a', 3, -17, 5, 3); }
+  else if (c.type === 'carrot') { R('#3f9b3f', -7, -22, 4, 12); R('#58b84a', -2, -26, 4, 16); R('#3f9b3f', 4, -22, 4, 12); R('#f08a24', -4, -10, 8, 6); R('#d9731a', -2, -5, 4, 4); }
+  else if (c.type === 'tomato') { R('#2f7d32', -9, -24, 18, 20); R('#3f9b3f', -6, -28, 12, 8); R('#e53935', -7, -18, 6, 6); R('#e53935', 2, -12, 6, 6); R('#e53935', -3, -24, 5, 5); R('#ff8a80', -6, -17, 2, 2); }
+  else { R('#3f9b3f', -2, -34, 4, 32); R('#58b84a', -9, -24, 8, 3); R('#58b84a', 2, -18, 8, 3); R('#f5d142', 2, -28, 5, 10); R('#d6a817', 2, -28, 1, 10); R('#e6c84a', -3, -37, 6, 3); }
+}
+function drawShop() {
+  const px = SB.x * TS, py = SB.y * TS, w = SB.w * TS, R = (c, a, b, ww, h) => { g.fillStyle = c; g.fillRect(px + a, py + b, ww, h); };
+  R('rgba(0,0,0,.22)', 4, 150, w, 12); R('#d9b27c', 0, 60, w, 100);
+  for (let i = 0; i < w; i += 16) R('#c79f68', i, 60, 2, 100);
+  g.fillStyle = '#b8382c'; g.beginPath(); g.moveTo(px - 10, py + 66); g.lineTo(px + 22, py + 6); g.lineTo(px + w - 22, py + 6); g.lineTo(px + w + 10, py + 66); g.fill();
+  for (let i = 0; i < w; i += 32) R('#e9d6a0', i + 10, 66, 16, 10);
+  R('#8e2b22', -10, 62, w + 20, 6);
+  R('#fff1c9', 36, 82, 88, 22); R('#5d3a16', 34, 80, 92, 3); R('#5d3a16', 34, 103, 92, 3);
+  g.fillStyle = '#4a2a0c'; g.font = 'bold 13px sans-serif'; g.textAlign = 'center'; g.fillText('SEMILLAS', px + 80, py + 97);
+  R('#6b4423', 64, 112, 32, 48); R('#4a2e16', 66, 114, 28, 46); R('#ffd84a', 88, 138, 3, 3);
+  R('#8fd3f4', 14, 114, 32, 26); R('#5d3a16', 28, 114, 3, 26); R('#8fd3f4', 114, 114, 32, 26); R('#5d3a16', 128, 114, 3, 26);
+  R('#e53935', 2, 150, 8, 8); R('#f5d142', 150, 150, 8, 8);
+}
+
+/* ---------- Lógica de juego ---------- */
+const dirVec = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+const mult = () => ch.sell;
+const price = id => Math.round(CROPS[id].sell * mult());
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast.id); toast.id = setTimeout(() => t.style.display = 'none', 1600); }
+
+function act(tx, ty) {
+  const key = tx + ',' + ty, t = tileAt(tx, ty), c = crops[key], it = HB[sel];
+  if (c) {                                             // cosechar / regar cultivo existente
+    if (c.p >= c.def.grow) { inv['c:' + c.type]++; delete crops[key]; toast('+1 ' + c.def.n); refresh(); }
+    else if (it.k === 'can') { wet[key] = WET; toast('Regado'); }
+    else toast('Todavía está creciendo');
+    return;
+  }
+  if (it.k === 'hoe') { if (t === G || t === PATH || t === SOIL || t === FLOW) { map[ty * W + tx] = TILL; } else toast('No se puede arar acá'); }
+  else if (it.k === 'can') { if (t === TILL) wet[key] = WET; else toast('Primero arás la tierra'); }
+  else if (it.k[0] === 's') {
+    const id = it.k.slice(2);
+    if (t !== TILL) toast('Plantá sobre tierra arada');
+    else if (!inv[it.k]) toast('No tenés semillas');
+    else { inv[it.k]--; crops[key] = { type: id, def: CROPS[id], p: 0 }; refresh(); }
+  } else toast('Elegí una herramienta o semilla');
+}
+function update(dt) {
+  if (shopOpen) return;
+  const k = keys; let dx = (k.d || k.arrowright ? 1 : 0) - (k.a || k.arrowleft ? 1 : 0), dy = (k.s || k.arrowdown ? 1 : 0) - (k.w || k.arrowup ? 1 : 0);
+  p.moving = !!(dx || dy);
+  if (p.moving) {
+    if (dx && dy) { dx *= .7071; dy *= .7071; }
+    p.dir = dy && !dx ? (dy > 0 ? 'down' : 'up') : (dx > 0 ? 'right' : 'left'); p.t += dt * 12;
+    const sp = 150 * ch.speed * dt;
+    if (dx && !hit(p.x + dx * sp, p.y)) p.x += dx * sp;
+    if (dy && !hit(p.x, p.y + dy * sp)) p.y += dy * sp;
+  }
+  cool -= dt;
+  if ((k[' '] || k.e) && cool <= 0) { const v = dirVec[p.dir]; act(Math.floor(p.x / TS) + v[0], Math.floor((p.y - 6) / TS) + v[1]); cool = .25; }
+  for (const key in crops) { const c = crops[key]; if (wet[key] > 0 && c.p < c.def.grow) c.p += dt * ch.grow; }
+  for (const key in wet) if ((wet[key] -= dt) <= 0) delete wet[key];
+  const vw = cv.width / Z, vh = cv.height / Z, f = 1 - Math.exp(-8 * dt);
+  cam.x += (Math.max(0, Math.min(W * TS - vw, p.x - vw / 2)) - cam.x) * f;
+  cam.y += (Math.max(0, Math.min(H * TS - vh, p.y - vh / 2)) - cam.y) * f;
+  const near = Math.hypot(p.x - 36.5 * TS, p.y - 16 * TS) < TS * 3.2;
+  $('#prompt').style.display = near ? 'block' : 'none'; update.near = near;
+}
+function render() {
+  const vw = cv.width / Z, vh = cv.height / Z;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#2b3a1e'; g.fillRect(0, 0, cv.width, cv.height);
+  g.setTransform(Z, 0, 0, Z, -Math.round(cam.x * Z), -Math.round(cam.y * Z));
+  const x0 = Math.max(0, Math.floor(cam.x / TS)), x1 = Math.min(W - 1, Math.floor((cam.x + vw) / TS));
+  const y0 = Math.max(0, Math.floor(cam.y / TS)), y1 = Math.min(H - 1, Math.floor((cam.y + vh) / TS));
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) drawGround(x, y);
+  const v = dirVec[p.dir], tx = Math.floor(p.x / TS) + v[0], ty = Math.floor((p.y - 6) / TS) + v[1];
+  if (!shopOpen) { g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 2; g.strokeRect(tx * TS + 1, ty * TS + 1, TS - 2, TS - 2); }
+  const pr = Math.floor(p.y / TS);
+  for (let y = y0; y <= Math.min(H - 1, y1 + 1); y++) {
+    for (let x = x0; x <= x1; x++) {
+      const t = map[y * W + x]; if (t === TREE) drawTree(x, y);
+      const c = crops[x + ',' + y]; if (c) drawCrop(c, x, y);
+      if (t === SHOP && x === SB.x && y === SB.y + SB.h - 1) drawShop();
+    }
+    if (pr === y) drawChar(g, ch, p.x, p.y, 1.6, p.dir, p.moving ? p.t : 0);
+  }
+}
+
+/* ---------- HUD y tienda ---------- */
+function refresh() {
+  $('#money').textContent = money;
+  $('#hotbar').innerHTML = HB.map((it, i) => `<button class="slot${i === sel ? ' on' : ''}" data-i="${i}"><i>${i + 1}</i><span class="ic">${it.e}</span><small>${it.n}</small>${it.k.includes(':') ? `<b>${inv[it.k]}</b>` : ''}</button>`).join('');
+}
+function renderShop() {
+  $('#shopMoney').textContent = money;
+  $('#buyList').innerHTML = Object.entries(CROPS).map(([id, c]) => `<div class="row"><span class="nm">${c.e} ${c.n}<br><small>Crece en ${c.grow}s. Vale ${Math.round(c.sell * ch.sell)}</small></span><span>${c.seed}</span><button data-buy="${id}" ${money < c.seed ? 'disabled' : ''}>Comprar</button></div>`).join('');
+  const rows = Object.entries(CROPS).filter(([id]) => inv['c:' + id] > 0);
+  $('#sellList').innerHTML = rows.length ? rows.map(([id, c]) => `<div class="row"><span class="nm">${c.e} ${c.n} x${inv['c:' + id]}</span><span>${price(id)}</span><button data-sell="${id}">Vender 1</button><button data-all="${id}">Todo</button></div>`).join('') : '<p class="empty">Todavía no cosechaste nada para vender.</p>';
+}
+function setShop(open) { shopOpen = open; $('#shop').classList.toggle('on', open); if (open) { renderShop(); } refresh(); }
+$('#shop').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const d = b.dataset;
+  if (d.buy && money >= CROPS[d.buy].seed) { money -= CROPS[d.buy].seed; inv['s:' + d.buy]++; }
+  if (d.sell && inv['c:' + d.sell] > 0) { inv['c:' + d.sell]--; money += price(d.sell); }
+  if (d.all) { money += inv['c:' + d.all] * price(d.all); inv['c:' + d.all] = 0; }
+  renderShop(); refresh();
+});
+$('#closeShop').onclick = () => setShop(false);
+$('#hotbar').addEventListener('click', e => { const s = e.target.closest('.slot'); if (s) { sel = +s.dataset.i; refresh(); } });
+
+/* ---------- Entrada ---------- */
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k) && state === 'play') e.preventDefault();
+  if (state !== 'play') return;
+  if (k === 'escape') return setShop(false);
+  if ((k === 'f' || k === 'enter') && !e.repeat) { if (shopOpen) setShop(false); else if (update.near) setShop(true); return; }
+  if (k >= '1' && k <= '8') { sel = +k - 1; refresh(); }
+  keys[k] = true;
+});
+addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+cv.addEventListener('mousedown', e => {
+  if (state !== 'play' || shopOpen) return;
+  const wx = e.clientX / Z + cam.x, wy = e.clientY / Z + cam.y, tx = Math.floor(wx / TS), ty = Math.floor(wy / TS);
+  if (Math.hypot(wx - p.x, wy - (p.y - 8)) > TS * 3) return toast('Está muy lejos');
+  const ax = wx - p.x, ay = wy - (p.y - 8); p.dir = Math.abs(ax) > Math.abs(ay) ? (ax > 0 ? 'right' : 'left') : (ay > 0 ? 'down' : 'up');
+  act(tx, ty);
+});
+function resize() { cv.width = innerWidth; cv.height = innerHeight; g.imageSmoothingEnabled = false; }
+addEventListener('resize', resize); resize();
+
+/* ---------- Menús ---------- */
+let pick = null;
+CHARS.forEach((c, i) => {
+  const b = document.createElement('button'); b.className = 'card';
+  b.innerHTML = `<canvas width="110" height="100"></canvas><h3>${c.name}</h3><p>${c.desc}</p>` +
+    ['Velocidad', 'Cultivo', 'Ventas'].map((n, j) => `<div class="stat"><span>${n}</span><div class="bar"><i style="width:${c.stats[j] * 20}%"></i></div></div>`).join('');
+  drawChar(b.querySelector('canvas').getContext('2d'), c, 55, 92, 3.6, 'down', 0);
+  b.onclick = () => { pick = c; document.querySelectorAll('.card').forEach(x => x.classList.remove('on')); b.classList.add('on'); $('#start').disabled = false; };
+  $('#cards').appendChild(b);
+});
+$('#play').onclick = () => { $('#menu').classList.remove('on'); $('#select').classList.add('on'); };
+$('#start').onclick = () => {
+  ch = pick; genMap(); money = 100; state = 'play';
+  $('#select').classList.remove('on'); $('#hud').classList.add('on');
+  $('#pname').textContent = ch.name;
+  const f = $('#face').getContext('2d'); drawChar(f, ch, 24, 54, 1.9, 'down', 0);
+  cam.x = p.x - cv.width / Z / 2; cam.y = p.y - cv.height / Z / 2; refresh();
+  toast('Elegí la azada (1) y arás la tierra con Espacio');
+};
+
+/* ---------- Bucle principal ---------- */
+let last = performance.now();
+(function loop(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (state === 'play') { update(dt); render(); }
+  requestAnimationFrame(loop);
+})(last);
+})();
+</script>
+</body>
 </html>
