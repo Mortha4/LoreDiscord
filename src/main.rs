@@ -1,9 +1,16 @@
 // Lore del discord - punto de entrada.
-// Solo arranca la ventana y ejecuta la escena activa en cada frame.
+// Abre la ventana, genera los assets (sonidos) y ejecuta la escena activa.
 
+mod assets;
+mod audio;
 mod config;
+mod fx;
+mod gfx;
+mod input;
+mod menu;
 mod scene;
 mod scenes;
+mod synth;
 
 use macroquad::prelude::*;
 use scene::{Scene, SceneAction};
@@ -19,16 +26,19 @@ fn window_conf() -> Conf {
 
 #[macroquad::main(window_conf)]
 async fn main() {
-    let mut current: Box<dyn Scene> = scenes::create(config::FIRST_SCENE);
+    macroquad::rand::srand(macroquad::miniquad::date::now() as u64);
+
+    let assets = assets::Assets::load().await;
+    let mut current: Box<dyn Scene> = scenes::create(config::FIRST_SCENE, &assets);
 
     loop {
-        match current.update() {
+        match current.update(&assets) {
             SceneAction::None => {}
-            SceneAction::GoTo(id) => current = scenes::create(id),
+            SceneAction::GoTo(id) => current = scenes::create(id, &assets),
             SceneAction::Quit => break,
         }
 
-        clear_background(config::BG);
+        clear_background(BLACK);
         current.draw();
 
         next_frame().await;
