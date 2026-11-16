@@ -1,1 +1,1 @@
-lore
+lore de discord
