@@ -1,12 +1,5 @@
-# [Nombre del juego]
-
-> [Frase corta que resuma el juego]
-
 ## 📖 Lore
 
-[Escribe aquí la historia. Por ejemplo: En lo profundo de los servidores de Discord
-existe un reino olvidado, donde los bots cobraron conciencia y los canales
-se convirtieron en territorios en guerra...]
 
 - **Facciones:** [ej. Los Moderadores, Los Bots Rebeldes, Los Lurkers]
 - **Ambientación:** [ej. un servidor de Discord corrompido]
@@ -81,6 +74,3 @@ Los PRs son bienvenidos. Abre un issue antes de hacer cambios grandes.
 
 [MIT / Apache-2.0 / otra]
 
-## 💬 Comunidad
-
-Únete al Discord: [enlace de invitación]
