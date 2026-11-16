@@ -3,11 +3,18 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>FIUBA LORE</title>
+    <meta name="theme-color" content="#060d1f">
+    <meta name="description" content="FIUBA LORE: aventura pixel art arcade para sobrevivir la cursada.">
+    <title>FIUBA LORE — Arcade</title>
     <link rel="stylesheet" href="css/styles.css">
   </head>
   <body>
-    <canvas id="c" width="640" height="480" aria-label="FIUBA LORE, videojuego"></canvas>
+    <main id="wrap" aria-label="FIUBA LORE">
+      <div class="screen-frame">
+        <canvas id="c" width="640" height="480" aria-label="FIUBA LORE, videojuego"></canvas>
+        <span class="screen-texture" aria-hidden="true"></span>
+      </div>
+    </main>
     <script type="module" src="js/main.js"></script>
   </body>
 </html>
