@@ -1,0 +1,1 @@
+/home/morta/Descargas/lore_del_discord/target/debug/lore_del_discord: /home/morta/Descargas/lore_del_discord/src/config.rs /home/morta/Descargas/lore_del_discord/src/main.rs /home/morta/Descargas/lore_del_discord/src/scene.rs /home/morta/Descargas/lore_del_discord/src/scenes/main_menu.rs /home/morta/Descargas/lore_del_discord/src/scenes/mod.rs
